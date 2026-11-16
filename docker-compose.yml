@@ -1,0 +1,72 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: reports-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - reports-net
+
+  backend-publisher:
+    build:
+      context: ./backend-publisher
+      dockerfile: Dockerfile
+    container_name: reports-publisher
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PDF_STORAGE_PATH=/app/storage/pdfs
+      - PORT=3000
+    volumes:
+      - pdf_storage:/app/storage/pdfs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - reports-net
+
+  backend-consumer:
+    build:
+      context: ./backend-consumer
+      dockerfile: Dockerfile
+    container_name: reports-consumer
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PDF_STORAGE_PATH=/app/storage/pdfs
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - PROCESSING_DELAY_MS=5000
+    volumes:
+      - pdf_storage:/app/storage/pdfs
+    shm_size: '1gb'
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - reports-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: reports-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend-publisher
+    networks:
+      - reports-net
+
+volumes:
+  pdf_storage:
+
+networks:
+  reports-net:
+    driver: bridge

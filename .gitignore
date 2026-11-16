@@ -1,0 +1,41 @@
+# Dependencias
+node_modules/
+*/node_modules/
+
+# Builds compilados
+dist/
+*/dist/
+.angular/
+*/.angular/
+
+# Cobertura de testes e relatórios
+coverage/
+*/coverage/
+*.lcov
+.nyc_output/
+
+# Arquivos e PDFs temporarios
+storage/
+*/storage/
+test-storage-pdfs/
+*.pdf
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Variaveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Arquivos de IDE e sistema operacional
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

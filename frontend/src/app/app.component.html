@@ -1,0 +1,168 @@
+<div class="app-layout">
+  <header class="app-header">
+    <h1 class="header-title">Relatórios</h1>
+  </header>
+
+  <main class="app-grid">
+    <section class="section-container" aria-labelledby="form-title">
+      <div class="section-heading-group">
+        <h2 id="form-title" class="section-title">Novo Relatório</h2>
+      </div>
+
+      <form (ngSubmit)="submitReport()" class="editor-form">
+        <div class="form-grid">
+          <div class="field-group span-2">
+            <label for="report-title">Título</label>
+            <input id="report-title" type="text" [(ngModel)]="reportTitle" name="title" required placeholder="Ex: Prestação de Contas" />
+          </div>
+
+          <div class="field-group span-2">
+            <label for="client-name">Cliente / Destinatário</label>
+            <input id="client-name" type="text" [(ngModel)]="clientName" name="client" required placeholder="Ex: Faculdade FEMA" />
+          </div>
+
+          <div class="field-group span-2">
+            <label for="author-name">Autor</label>
+            <input id="author-name" type="text" [(ngModel)]="authorName" name="author" placeholder="Ex: Coordenação de Engenharia" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="summary-text">Resumo</label>
+          <textarea id="summary-text" rows="3" [(ngModel)]="summaryText" name="summary" placeholder="Resumo do relatório..."></textarea>
+        </div>
+
+        <div class="table-section">
+          <div class="table-header-row">
+            <span class="table-title">Itens</span>
+            <button type="button" class="btn-text-action" (click)="addItem()">+ Adicionar item</button>
+          </div>
+
+          <div class="table-scroll-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col" style="width: 50%;">Descrição</th>
+                  <th scope="col" style="width: 15%; text-align: center;">Qtd</th>
+                  <th scope="col" style="width: 25%; text-align: right;">Valor (R$)</th>
+                  <th scope="col" style="width: 10%; text-align: center;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of items; let i = index">
+                  <td>
+                    <input type="text" [(ngModel)]="item.description" [name]="'item_desc_' + i" [attr.aria-label]="'Descrição do item ' + (i + 1)" placeholder="Item" />
+                  </td>
+                  <td>
+                    <input type="number" min="1" [(ngModel)]="item.quantity" [name]="'item_qty_' + i" [attr.aria-label]="'Quantidade do item ' + (i + 1)" style="text-align: center;" />
+                  </td>
+                  <td>
+                    <input type="number" step="0.01" [(ngModel)]="item.unitPrice" [name]="'item_price_' + i" [attr.aria-label]="'Preço do item ' + (i + 1)" style="text-align: right;" />
+                  </td>
+                  <td style="text-align: center;">
+                    <button type="button" class="btn-remove-row" (click)="removeItem(i)" [disabled]="items.length <= 1" [attr.aria-label]="'Excluir item ' + (i + 1)">
+                      &times;
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-summary-bar">
+            <span class="summary-label">Total:</span>
+            <span class="summary-value">R$ {{ calculateTotal() | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="notes-text">Observações</label>
+          <input id="notes-text" type="text" [(ngModel)]="notesText" name="notes" placeholder="Observações finais..." />
+        </div>
+
+        <div class="form-actions-bar">
+          <button type="submit" class="btn-primary" [disabled]="submitting">
+            <span *ngIf="!submitting">Enviar</span>
+            <span *ngIf="submitting">Gerando...</span>
+          </button>
+          <button type="button" class="btn-secondary" (click)="submitBatchDemo()" [disabled]="batchSubmitting">
+            <span *ngIf="!batchSubmitting">Gerar Lote de Teste</span>
+            <span *ngIf="batchSubmitting">Enviando lote...</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="section-container" aria-labelledby="reports-title">
+      <div class="section-heading-group queue-heading-group">
+        <h2 id="reports-title" class="section-title">Relatórios Gerados</h2>
+        <button type="button" class="btn-icon-refresh" (click)="fetchInitialQueue()" title="Atualizar lista" aria-label="Atualizar lista de relatórios">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="queue-status-strip" role="region" aria-label="Resumo dos relatórios">
+        <span>Pendentes: <strong>{{ queueCounts.waiting }}</strong></span>
+        <span class="strip-divider">&bull;</span>
+        <span>Processando: <strong>{{ queueCounts.active }}</strong></span>
+        <span class="strip-divider">&bull;</span>
+        <span>Prontos: <strong>{{ queueCounts.completed }}</strong></span>
+      </div>
+
+      <div class="cards-stack" role="feed" aria-label="Lista de relatórios">
+        <div *ngIf="jobs.length === 0" class="empty-feed">
+          <p class="empty-feed-title">Nenhum relatório gerado ainda</p>
+          <p class="empty-feed-hint">Preencha os dados e clique em Enviar.</p>
+        </div>
+
+        <div *ngFor="let job of jobs" 
+             class="report-card" 
+             [class.is-ready]="job.state === 'completed'"
+             [class.is-working]="job.state === 'active' || job.state === 'processing'"
+             [class.is-failed]="job.state === 'failed'"
+             [attr.role]="job.state === 'completed' ? 'button' : 'article'"
+             [attr.tabindex]="job.state === 'completed' ? 0 : -1"
+             (click)="job.state === 'completed' && openPdf(job.id)"
+             (keydown.enter)="job.state === 'completed' && openPdf(job.id)"
+             (keydown.space)="job.state === 'completed' && openPdf(job.id)">
+          
+          <div class="card-top-row">
+            <div class="card-meta">
+              <span class="card-job-tag">#{{ job.id }}</span>
+              <h3 class="card-title">{{ job.title }}</h3>
+              <span class="card-subtitle">{{ job.client }}</span>
+            </div>
+
+            <span class="card-state-pill" [attr.data-state]="job.state">
+              <span *ngIf="job.state === 'waiting'">Aguardando</span>
+              <span *ngIf="job.state === 'active' || job.state === 'processing'">Processando...</span>
+              <span *ngIf="job.state === 'completed'">Pronto</span>
+              <span *ngIf="job.state === 'failed'">Erro</span>
+            </span>
+          </div>
+
+          <div class="card-progress-track">
+            <div class="card-progress-bar" [style.width.%]="job.progress" [attr.data-state]="job.state"></div>
+          </div>
+
+          <div class="card-bottom-row" *ngIf="job.state === 'completed'">
+            <span class="card-action-hint">Clique para abrir</span>
+            <a [href]="getPdfUrl(job.id)" 
+               download="relatorio-{{job.id}}.pdf" 
+               class="btn-card-download" 
+               (click)="$event.stopPropagation()"
+               aria-label="Baixar arquivo PDF">
+              Baixar
+            </a>
+          </div>
+
+          <div class="card-error-row" *ngIf="job.state === 'failed'">
+            <span>{{ job.failedReason || 'Ocorreu um erro ao gerar o relatório.' }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
